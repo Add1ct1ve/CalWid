@@ -1,0 +1,17 @@
+{
+  "name": "calendar-widget-tauri",
+  "version": "1.0.0",
+  "description": "Google Calendar Widget using Tauri",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "canvas": "^3.2.1"
+  }
+}

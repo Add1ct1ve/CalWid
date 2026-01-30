@@ -1,0 +1,27 @@
+# Credentials and secrets
+credentials.json
+token.json
+cache.json
+
+# Build outputs
+*.exe
+src-tauri/target/
+node_modules/
+
+# Build scripts and logs
+build.log
+build.bat
+build.ps1
+create-icon.js
+app-icon.png
+
+# Windows startup shortcut
+*.vbs
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
