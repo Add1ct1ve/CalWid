@@ -662,7 +662,7 @@
       // Events grid - store in global array
       window.eventsByDate = {};
       dates.forEach(date => {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = toLocalDateStr(date);
         window.eventsByDate[dateStr] = events.filter(e => e.date === dateStr);
       });
 
@@ -678,7 +678,7 @@
 
       const eventsGrid = document.getElementById('events-grid');
       eventsGrid.innerHTML = dates.map(date => {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = toLocalDateStr(date);
         const dayEvents = window.eventsByDate[dateStr] || [];
 
         // Separate all-day and timed events
@@ -782,6 +782,13 @@
 
     function truncate(str, len) {
       return str.length > len ? str.slice(0, len - 1) + '...' : str;
+    }
+
+    function toLocalDateStr(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
 
     function escapeHtml(text) {

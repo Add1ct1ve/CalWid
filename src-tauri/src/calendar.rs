@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc, Duration, Datelike, Weekday, NaiveDate};
+use chrono::{DateTime, Local, Duration, Datelike, NaiveDate};
 
 use crate::auth::get_access_token;
 
@@ -123,12 +123,12 @@ pub async fn get_events(days: i32) -> Result<Vec<Event>, String> {
     let calendars = get_calendars().await?;
 
     // Start from beginning of current week (Monday)
-    let now = Utc::now();
+    let now = Local::now();
     let days_since_monday = now.weekday().num_days_from_monday() as i64;
     let start_of_week = now - Duration::days(days_since_monday);
-    let start_of_week = start_of_week.format("%Y-%m-%dT00:00:00Z").to_string();
+    let start_of_week = start_of_week.format("%Y-%m-%dT00:00:00%:z").to_string();
 
-    let time_max = (now + Duration::days(days as i64)).format("%Y-%m-%dT23:59:59Z").to_string();
+    let time_max = (now + Duration::days(days as i64)).format("%Y-%m-%dT23:59:59%:z").to_string();
 
     let mut all_events = Vec::new();
 
@@ -247,7 +247,7 @@ fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool
     }
 
     // Fallback
-    let now = Utc::now();
+    let now = Local::now();
     let date = now.format("%Y-%m-%d").to_string();
     (date, "All day".to_string(), "All day".to_string(), "Unknown".to_string(), true)
 }
