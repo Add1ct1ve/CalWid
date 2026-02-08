@@ -169,21 +169,70 @@ pub async fn get_events(days: i32) -> Result<Vec<Event>, String> {
 
         if let Some(items) = data.items {
             for item in items {
-                let (date, time, time_range, date_formatted, is_all_day) = parse_event_time(&item);
+                let (date, time, time_range, date_formatted, is_all_day, end_date) = parse_event_time(&item);
 
-                all_events.push(Event {
-                    id: item.id.unwrap_or_default(),
-                    title: item.summary.unwrap_or_else(|| "(No title)".to_string()),
-                    date,
-                    time,
-                    time_range,
-                    date_formatted,
-                    color: calendar.color.clone(),
-                    calendar: calendar.name.clone(),
-                    location: item.location.unwrap_or_default(),
-                    description: item.description.unwrap_or_default(),
-                    is_all_day,
-                });
+                let event_id = item.id.unwrap_or_default();
+                let title = item.summary.unwrap_or_else(|| "(No title)".to_string());
+                let location = item.location.unwrap_or_default();
+                let description = item.description.unwrap_or_default();
+
+                if let Some(ref end_d) = end_date {
+                    // Multi-day event: expand across each day
+                    if let (Ok(start_naive), Ok(end_naive)) = (
+                        NaiveDate::parse_from_str(&date, "%Y-%m-%d"),
+                        NaiveDate::parse_from_str(end_d, "%Y-%m-%d"),
+                    ) {
+                        let mut current = start_naive;
+                        while current <= end_naive {
+                            let day_str = current.format("%Y-%m-%d").to_string();
+                            let day_formatted = current.format("%A, %d. %B").to_string();
+                            all_events.push(Event {
+                                id: event_id.clone(),
+                                title: title.clone(),
+                                date: day_str,
+                                time: "All day".to_string(),
+                                time_range: "All day".to_string(),
+                                date_formatted: day_formatted,
+                                color: calendar.color.clone(),
+                                calendar: calendar.name.clone(),
+                                location: location.clone(),
+                                description: description.clone(),
+                                is_all_day: true,
+                            });
+                            current += Duration::days(1);
+                        }
+                    } else {
+                        // Fallback: couldn't parse dates, just push the single event
+                        all_events.push(Event {
+                            id: event_id,
+                            title,
+                            date,
+                            time,
+                            time_range,
+                            date_formatted,
+                            color: calendar.color.clone(),
+                            calendar: calendar.name.clone(),
+                            location,
+                            description,
+                            is_all_day,
+                        });
+                    }
+                } else {
+                    // Single-day event
+                    all_events.push(Event {
+                        id: event_id,
+                        title,
+                        date,
+                        time,
+                        time_range,
+                        date_formatted,
+                        color: calendar.color.clone(),
+                        calendar: calendar.name.clone(),
+                        location,
+                        description,
+                        is_all_day,
+                    });
+                }
             }
         }
     }
@@ -207,7 +256,7 @@ pub async fn get_events(days: i32) -> Result<Vec<Event>, String> {
     Ok(all_events)
 }
 
-fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool) {
+fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool, Option<String>) {
     let start = event.start.as_ref();
     let end = event.end.as_ref();
 
@@ -215,7 +264,13 @@ fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool
         if let Some(date) = &start.date {
             // All-day event
             let date_formatted = format_date_string(date);
-            return (date.clone(), "All day".to_string(), "All day".to_string(), date_formatted, true);
+            // Google's end date is exclusive, so subtract 1 day to get the last actual day
+            let end_date = end
+                .and_then(|e| e.date.as_ref())
+                .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+                .map(|d| (d - Duration::days(1)).format("%Y-%m-%d").to_string())
+                .filter(|d| d != date);
+            return (date.clone(), "All day".to_string(), "All day".to_string(), date_formatted, true, end_date);
         }
 
         if let Some(dt_str) = &start.date_time {
@@ -225,6 +280,13 @@ fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool
                 let date = local.format("%Y-%m-%d").to_string();
                 let time = local.format("%H:%M").to_string();
                 let date_formatted = local.format("%A, %d. %B").to_string();
+
+                // Check if end date differs from start date (multi-day timed event)
+                let end_date = end
+                    .and_then(|e| e.date_time.as_ref())
+                    .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                    .map(|d| d.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
+                    .filter(|d| d != &date);
 
                 let time_range = if let Some(end) = end {
                     if let Some(end_dt_str) = &end.date_time {
@@ -241,7 +303,7 @@ fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool
                     time.clone()
                 };
 
-                return (date, time, time_range, date_formatted, false);
+                return (date, time, time_range, date_formatted, false, end_date);
             }
         }
     }
@@ -249,7 +311,7 @@ fn parse_event_time(event: &EventEntry) -> (String, String, String, String, bool
     // Fallback
     let now = Local::now();
     let date = now.format("%Y-%m-%d").to_string();
-    (date, "All day".to_string(), "All day".to_string(), "Unknown".to_string(), true)
+    (date, "All day".to_string(), "All day".to_string(), "Unknown".to_string(), true, None)
 }
 
 fn format_date_string(date_str: &str) -> String {
